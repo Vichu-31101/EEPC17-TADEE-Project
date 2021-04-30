@@ -26,6 +26,7 @@ import kotlinx.android.synthetic.main.fragment_inp.*
 import kotlinx.android.synthetic.main.fragment_out.*
 import org.kotlinmath.Complex
 import org.kotlinmath.complex
+import java.lang.Math.pow
 import kotlin.math.*
 
 
@@ -97,10 +98,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    fun angle(num: Complex): String {
+        return  String.format("%.3f", num.mod)+"∠"+String.format("%.3f", (num.arg*180.0/Math.PI))
+
+    }
+
+    fun angleC(num: Complex): String {
+        return  String.format("%.5f", num.mod)+"∠"+String.format("%.3f", (num.arg*180.0/Math.PI))
+
+    }
+
     fun round(num: Complex): Complex {
         return complex(
             String.format("%.3f", num.re).toDouble(),
             String.format("%.3f", num.im).toDouble()
+        )
+    }
+
+    fun roundC(num: Complex): Complex {
+        return complex(
+            String.format("%.6f", num.re).toDouble(),
+            String.format("%.6f", num.im).toDouble()
         )
     }
 
@@ -125,11 +143,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun MGMD(): Double {
-        var MGMD: Double = if (system === "Symmetrical")
+        var MG = if (system === "Symmetrical")
             Dph
-        else
-            (Dab * Dbc * Dca).pow((1 / 3).toDouble())
-        return MGMD
+        else{
+            (Dab * Dbc * Dca).pow(1.0/3.0)
+        }
+        return MG
     }
 
     fun SGMD(){
@@ -143,26 +162,16 @@ class MainActivity : AppCompatActivity() {
             5 -> y = 0.7788 * r * x.pow((nC - 1).toDouble()) * sqrt(sin(54.0));
             6 -> y = 0.7788 * r * x.pow((nC - 1).toDouble()) * 6;
         }
-        SGMDL = y.pow((1 / nC).toDouble())
+
+        SGMDL = y.pow((1.0 / nC))
         Inductance = 2 * 10.0.pow(-4.0) * ln(MGMD() / SGMDL)
-        if (l<=80) {
+        if (model == "Short") {
             Capacitance = 0.0
         } else {
-            SGMDC = (y / 0.7788).pow((1 / nC).toDouble())
+            SGMDC = (y / 0.7788).pow((1.0 / nC))
             Capacitance = (2 * Math.PI * 8.854187817 * 10.0.pow(-9.0)) / ln(MGMD() / SGMDC)
         }
-
-    }
-
-    fun Charging_Current(): Complex {
-        var Ict = complex(0, 0)
-        if(model == "Short")
-            Ict = complex(0, 0)
-        else if(model == "Medium")
-            Ict = complex(1, 0) /Y * 2 * Vr
-        else if(model == "Long")
-            Ict = C * Vr
-        return Ict
+        Log.d("test2",MGMD().toString()+" "+SGMDL.toString()+" "+SGMDC.toString())
     }
 
     fun ABCD(){
@@ -198,9 +207,7 @@ class MainActivity : AppCompatActivity() {
             var c1 = (A.mod * Vr.pow(2.0) * cos(B.arg))/B.mod
             var c2 = (A.mod * Vr.pow(2.0) * sin(B.arg))/B.mod
             var r = Vr.pow(2.0)/(B.mod*1000000)
-            var Qr= sqrt(r.pow(2.0) - (Pr / (3 * 10.0.pow(6.0)) + c1 / 10.0.pow(6.0)).pow(2.0)) - c2/ 10.0.pow(
-                6.0
-            )
+            var Qr= sqrt(r.pow(2.0) - (Pr / (3 * 10.0.pow(6.0)) + c1 / 10.0.pow(6.0)).pow(2.0)) - c2/ 10.0.pow(6.0)
             var Q = -1*tan(acos(Pfr))*Pr/(10.0.pow(6.0))/3
             compensation = Qr - Q
         }
@@ -370,22 +377,22 @@ class MainActivity : AppCompatActivity() {
                     setGraphSending()
                     var outputText = "Inductance per phase: ${round(Inductance * 1000)} x 10^-3 H/km\n" +
                             "Capacitance per phase: ${round(Capacitance * 1000000)} x 10^-6 F/km\n" +
-                            "Inductive reactance: ${round(Xl)} Ohm\n" +
-                            "Capacitive reactance: ${round(Xc)} Ohm\n" +
-                            "Charging current: ${round(Ic).asString()} A\n\n" +
+                            "Inductive reactance: ${round(Xl)} Ω\n" +
+                            "Capacitive reactance: ${round(Xc)} Ω\n" +
+                            "Charging current: ${angle(round(Ic))} A\n\n" +
                             "ABCD parameters: \n" +
-                            "A: ${round(A).asString()} \n" +
-                            "B: ${round(B).asString()} \n" +
-                            "C: ${round(C).asString()} \n" +
-                            "D: ${round(D).asString()} \n\n" +
-                            "Sending end voltage: ${round(Vs / 1000).asString()} kV\n" +
-                            "Sending end current: ${round(Is).asString()} A\n\n" +
+                            "A: ${angle(round(A))} \n" +
+                            "B: ${angle(round(B))} Ω \n" +
+                            "C: ${angleC(roundC(C))} S\n" +
+                            "D: ${angle(round(D))} \n\n" +
+                            "Sending end voltage: ${angle(round(Vs / 1000))} kV\n" +
+                            "Sending end current: ${angle(round(Is))} A\n\n" +
                             "Percentage voltage regulation: ${round(VReg)} %\n" +
                             "Power loss in the line in MW: ${round(PL / 1000000)} MW\n" +
                             "Transmission efficiency: ${round(eff)} %"
                     if (model == "Short") {
-                        outputText += "\n\n Compensation: ${round(compensation)} MVAR"
-                        if (compensation > 0) {
+                        outputText += "\n\n Compensation: ${round(compensation)} MVAR per Phase"
+                        if (compensation < 0) {
                             outputText += "\n\n Capacitive compensation \n Use \"Shunt capacitor\" type compensation to avoid undervoltage conditions"
                         } else {
                             outputText += "\n\n Inductive compensation \n Use \"Shunt reactor\" type compensation to avoid overvoltage conditions"
